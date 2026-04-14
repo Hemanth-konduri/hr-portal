@@ -2,35 +2,32 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
+import { Lock, Eye, EyeOff, AlertCircle, AlertTriangle, ArrowRight, Loader2, ShieldCheck, Building2 } from 'lucide-react';
 
 const ChangePassword = () => {
   const [formData, setFormData] = useState({ current_password: '', new_password: '', confirm_password: '' });
+  const [show, setShow] = useState({ current: false, new: false, confirm: false });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { user, login } = useAuth();
   const navigate = useNavigate();
 
   const onChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const toggleShow = (field) => setShow((p) => ({ ...p, [field]: !p[field] }));
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    if (formData.new_password !== formData.confirm_password) {
+    if (formData.new_password !== formData.confirm_password)
       return setError('New passwords do not match');
-    }
-
     setLoading(true);
     try {
       await api.post('/auth/change-password', {
         current_password: formData.current_password,
         new_password: formData.new_password,
       });
-
-      // Update user in context so password_reset_required is cleared
       const updatedUser = { ...user, password_reset_required: false };
       login(localStorage.getItem('token'), updatedUser);
-
       if (user.role === 'super_admin') navigate('/super-admin/dashboard');
       else if (user.role === 'admin') navigate('/admin/dashboard');
       else navigate('/employee/dashboard');
@@ -41,66 +38,126 @@ const ChangePassword = () => {
     }
   };
 
+  const fields = [
+    { name: 'current_password', label: 'Current Password',     placeholder: 'Enter current password',    showKey: 'current' },
+    { name: 'new_password',     label: 'New Password',         placeholder: 'Min 8 chars, upper, lower, number, special', showKey: 'new' },
+    { name: 'confirm_password', label: 'Confirm New Password', placeholder: 'Re-enter new password',      showKey: 'confirm' },
+  ];
+
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <div style={styles.icon}>🔒</div>
-          <h1 style={styles.title}>Change Password</h1>
-          <p style={styles.subtitle}>
-            {user?.password_reset_required
-              ? 'You must change your password before continuing'
-              : 'Update your account password'}
-          </p>
+    <div className="min-h-screen bg-[#ECECEC] flex items-center justify-center relative overflow-hidden">
+
+      {/* Decorative circles */}
+      <div className="absolute top-[-180px] left-[-180px] w-[500px] h-[500px] rounded-full bg-[#1C1C1E] opacity-[0.06]" />
+      <div className="absolute bottom-[-200px] right-[-200px] w-[550px] h-[550px] rounded-full bg-[#1C1C1E] opacity-[0.06]" />
+      <div className="absolute top-[40%] left-[-100px] w-[300px] h-[300px] rounded-full bg-[#1C1C1E] opacity-[0.04]" />
+      <div className="absolute top-[-60px] right-[25%] w-[200px] h-[200px] rounded-full bg-[#1C1C1E] opacity-[0.04]" />
+      <div className="absolute bottom-[-40px] left-[30%] w-[180px] h-[180px] rounded-full bg-[#1C1C1E] opacity-[0.04]" />
+
+      {/* Dot grid */}
+      <div className="absolute inset-0 opacity-[0.3]"
+        style={{ backgroundImage: 'radial-gradient(circle, #1C1C1E 1px, transparent 1px)', backgroundSize: '28px 28px' }}
+      />
+
+      <div className="relative z-10 w-full max-w-[440px] mx-4">
+        <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+
+          {/* Accent bar */}
+          <div className="h-1.5 w-full bg-gradient-to-r from-gray-800 via-gray-600 to-gray-400" />
+
+          <div className="p-10">
+            {/* Logo */}
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-11 h-11 bg-[#1C1C1E] rounded-2xl flex items-center justify-center flex-shrink-0">
+                <Building2 size={20} className="text-white" />
+              </div>
+              <div>
+                <p className="text-[#1C1C1E] text-sm font-bold leading-none tracking-tight">HR Portal</p>
+                <p className="text-gray-400 text-[11px] mt-0.5 tracking-wide">Workforce Management System</p>
+              </div>
+            </div>
+
+            {/* Heading */}
+            <div className="mb-7">
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck size={22} className="text-[#1C1C1E]" />
+                <h2 className="text-[#1C1C1E] text-[26px] font-bold tracking-tight">Change Password</h2>
+              </div>
+              <p className="text-gray-400 text-sm">
+                {user?.password_reset_required
+                  ? 'You must change your password before continuing'
+                  : 'Update your account password'}
+              </p>
+            </div>
+
+            {/* First login warning */}
+            {user?.password_reset_required && (
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 text-amber-700 rounded-2xl px-4 py-3 text-sm mb-5">
+                <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+                <span>This is your first login. Please set a new password to continue.</span>
+              </div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div className="flex items-center gap-3 bg-red-50 border border-red-100 text-red-500 rounded-2xl px-4 py-3 text-sm mb-5">
+                <AlertCircle size={16} className="flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={onSubmit} className="space-y-4">
+              {fields.map(({ name, label, placeholder, showKey }) => (
+                <div key={name}>
+                  <label className="block text-[#1C1C1E] text-[11px] font-bold mb-2 uppercase tracking-widest">
+                    {label}
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300">
+                      <Lock size={15} />
+                    </div>
+                    <input
+                      type={show[showKey] ? 'text' : 'password'}
+                      name={name}
+                      placeholder={placeholder}
+                      value={formData[name]}
+                      onChange={onChange}
+                      required
+                      className="w-full bg-[#F7F7F7] text-[#1C1C1E] placeholder-gray-300 rounded-2xl pl-11 pr-12 py-3.5 text-sm outline-none border-2 border-transparent focus:border-[#1C1C1E] focus:bg-white transition-all duration-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleShow(showKey)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#1C1C1E] transition-colors"
+                    >
+                      {show[showKey] ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#1C1C1E] text-white rounded-2xl py-4 text-sm font-bold tracking-wide hover:bg-[#2d2d2d] active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1"
+              >
+                {loading ? (
+                  <><Loader2 size={16} className="animate-spin" /> Updating...</>
+                ) : (
+                  <>Update Password <ArrowRight size={16} /></>
+                )}
+              </button>
+            </form>
+          </div>
         </div>
 
-        {user?.password_reset_required && (
-          <div style={styles.warningBox}>
-            ⚠️ This is your first login. Please set a new password to continue.
-          </div>
-        )}
-
-        {error && <div style={styles.error}>{error}</div>}
-
-        <form onSubmit={onSubmit} style={styles.form}>
-          <div style={styles.field}>
-            <label style={styles.label}>Current Password</label>
-            <input style={styles.input} type="password" name="current_password" placeholder="Enter current password"
-              value={formData.current_password} onChange={onChange} required />
-          </div>
-          <div style={styles.field}>
-            <label style={styles.label}>New Password</label>
-            <input style={styles.input} type="password" name="new_password" placeholder="Min 8 chars, upper, lower, number, special"
-              value={formData.new_password} onChange={onChange} required />
-          </div>
-          <div style={styles.field}>
-            <label style={styles.label}>Confirm New Password</label>
-            <input style={styles.input} type="password" name="confirm_password" placeholder="Re-enter new password"
-              value={formData.confirm_password} onChange={onChange} required />
-          </div>
-          <button style={{ ...styles.btn, opacity: loading ? 0.7 : 1 }} type="submit" disabled={loading}>
-            {loading ? 'Updating...' : 'Update Password'}
-          </button>
-        </form>
+        <p className="text-center text-gray-400 text-xs mt-5">
+          Need help? Contact your <span className="text-[#1C1C1E] font-semibold">HR Administrator</span>
+        </p>
       </div>
     </div>
   );
-};
-
-const styles = {
-  page: { minHeight: '100vh', background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' },
-  card: { background: '#fff', borderRadius: '16px', padding: '48px 40px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' },
-  header: { textAlign: 'center', marginBottom: '32px' },
-  icon: { fontSize: '48px', marginBottom: '12px' },
-  title: { fontSize: '26px', fontWeight: '700', color: '#1a202c', margin: '0 0 8px' },
-  subtitle: { fontSize: '14px', color: '#718096', margin: 0 },
-  warningBox: { background: '#fffbeb', border: '1px solid #f6e05e', color: '#744210', padding: '12px 16px', borderRadius: '8px', fontSize: '13px', marginBottom: '20px' },
-  error: { background: '#fff5f5', border: '1px solid #fed7d7', color: '#c53030', padding: '12px 16px', borderRadius: '8px', fontSize: '14px', marginBottom: '20px' },
-  form: { display: 'flex', flexDirection: 'column', gap: '20px' },
-  field: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  label: { fontSize: '14px', fontWeight: '600', color: '#4a5568' },
-  input: { padding: '12px 16px', border: '1.5px solid #e2e8f0', borderRadius: '8px', fontSize: '15px', outline: 'none', color: '#1a202c' },
-  btn: { background: 'linear-gradient(135deg, #0f3460, #1a1a2e)', color: '#fff', border: 'none', padding: '14px', borderRadius: '8px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' },
 };
 
 export default ChangePassword;
