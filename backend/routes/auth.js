@@ -9,6 +9,7 @@ const {
   forgotPassword,
   resetPassword,
   getMe,
+  updateMe,
 } = require('../controllers/authController');
 
 // Public routes
@@ -19,7 +20,8 @@ router.post('/forgot-password', forgotPassword);      // send OTP to email
 router.post('/reset-password', resetPassword);        // verify OTP + set new password
 
 // Protected routes
-router.get('/me', authenticate, getMe);                             // get logged in user
+router.get('/me',  authenticate, getMe);                            // get logged in user
+router.put('/me',  authenticate, updateMe);                         // self-update profile
 router.post('/change-password', authenticate, changePassword);      // forced + voluntary password change
 
 module.exports = router;

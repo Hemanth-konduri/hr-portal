@@ -313,8 +313,8 @@ const getMe = async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT u.id, u.employee_id, u.full_name, u.email, u.role, u.status,
-              u.position, u.phone, u.profile_photo, u.date_of_joining,
-              u.password_reset_required, d.name AS department
+              u.position, u.phone, u.profile_photo, u.date_of_joining, u.date_of_birth,
+              u.address, u.password_reset_required, d.name AS department
        FROM users u
        LEFT JOIN departments d ON u.department_id = d.id
        WHERE u.id = ?`,
@@ -326,4 +326,42 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { setupSuperAdmin, getSetupStatus, login, changePassword, forgotPassword, resetPassword, getMe };
+// ════════════════════════════════════════════════════════════
+// PUT /api/auth/me
+// Self-update own profile (all roles)
+// ════════════════════════════════════════════════════════════
+const updateMe = async (req, res) => {
+  try {
+    const { full_name, phone, address, date_of_birth } = req.body;
+
+    await pool.query(
+      `UPDATE users SET
+         full_name    = COALESCE(NULLIF(?, ''), full_name),
+         phone        = COALESCE(NULLIF(?, ''), phone),
+         address      = COALESCE(NULLIF(?, ''), address),
+         date_of_birth = COALESCE(NULLIF(?, ''), date_of_birth)
+       WHERE id = ?`,
+      [full_name, phone, address, date_of_birth, req.user.id]
+    );
+
+    await auditLog(req.user.id, 'PROFILE_UPDATED', null, null, req.ip);
+
+    // Return fresh profile
+    const [rows] = await pool.query(
+      `SELECT u.id, u.employee_id, u.full_name, u.email, u.role, u.status,
+              u.position, u.phone, u.profile_photo, u.date_of_joining, u.date_of_birth,
+              u.address, u.password_reset_required, d.name AS department
+       FROM users u
+       LEFT JOIN departments d ON u.department_id = d.id
+       WHERE u.id = ?`,
+      [req.user.id]
+    );
+
+    res.json({ msg: 'Profile updated successfully', user: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+module.exports = { setupSuperAdmin, getSetupStatus, login, changePassword, forgotPassword, resetPassword, getMe, updateMe };
