@@ -1,73 +1,76 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const Document = require('../models/Document');
-const auth = require('../middleware/auth');
-
 const router = express.Router();
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const { pool } = require('../config/database');
+const { authenticate, authorize } = require('../middleware/auth');
 
-// Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/documents/');
+  destination: function (req, file, cb) {
+    const dir = path.join(__dirname, '../uploads/documents');
+    if (!fs.existsSync(dir)){
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
   },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + '-' + file.originalname);
+  }
 });
+const upload = multer({ storage: storage });
 
-const upload = multer({ storage });
+router.use(authenticate);
 
-// @route   POST /api/documents
-// @desc    Upload document
-// @access  Private
-router.post('/', [auth, upload.single('document')], async (req, res) => {
-  const { type, name } = req.body;
-
+// Upload document (Employee or Admin)
+router.post('/', upload.single('document'), async (req, res) => {
   try {
-    const document = new Document({
-      employee: req.user.id,
-      type,
-      name,
-      fileUrl: req.file.path,
-      uploadedBy: req.user.id,
-    });
+    if (!req.file) return res.status(400).json({ msg: 'File is required' });
+    const { document_type, user_id } = req.body;
+    
+    // Employees can only upload to their own user_id
+    let targetUser = req.user.id;
+    if (user_id && ['admin', 'super_admin'].includes(req.user.role)) {
+      targetUser = user_id;
+    }
+    
+    const file_path = `/uploads/documents/` + req.file.filename;
 
-    await document.save();
-    res.json(document);
+    await pool.query(
+      'INSERT INTO documents (user_id, document_type, file_name, file_path, uploaded_by) VALUES (?, ?, ?, ?, ?)',
+      [targetUser, document_type, req.file.originalname, file_path, req.user.id]
+    );
+
+    res.json({ msg: 'Document uploaded successfully', file_path });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
-// @route   GET /api/documents
-// @desc    Get documents
-// @access  Private
-router.get('/', auth, async (req, res) => {
+// Get user's documents
+router.get('/my', async (req, res) => {
   try {
-    const documents = await Document.find({ employee: req.user.id }).sort({ createdAt: -1 });
-    res.json(documents);
+    const [rows] = await pool.query('SELECT * FROM documents WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
+    res.json(rows);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
-// @route   GET /api/documents/all
-// @desc    Get all documents (Admin)
-// @access  Private (Admin)
-router.get('/all', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Access denied' });
-  }
-
+// Get all documents (Admin)
+router.get('/all', authorize('super_admin', 'admin'), async (req, res) => {
   try {
-    const documents = await Document.find().populate('employee', 'name employeeId').sort({ createdAt: -1 });
-    res.json(documents);
+    const [rows] = await pool.query(`
+      SELECT d.*, u.full_name as owner_name, u.employee_id 
+      FROM documents d 
+      JOIN users u ON d.user_id = u.id 
+      ORDER BY d.created_at DESC
+    `);
+    res.json(rows);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 

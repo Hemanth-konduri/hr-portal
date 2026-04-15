@@ -19,13 +19,14 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/employees'));
 
 // ── Coming Soon (will be added module by module) ───────────
-// app.use('/api/attendance', require('./routes/attendance'));
-// app.use('/api/leaves', require('./routes/leaves'));
-// app.use('/api/payslips', require('./routes/payslips'));
-// app.use('/api/documents', require('./routes/documents'));
-// app.use('/api/announcements', require('./routes/announcements'));
-// app.use('/api/feedback', require('./routes/feedback'));
-// app.use('/api/work-updates', require('./routes/workUpdates'));
+app.use('/api/attendance', require('./routes/attendance'));
+app.use('/api/leaves', require('./routes/leaves'));
+app.use('/api/payslips', require('./routes/payslips'));
+app.use('/api/documents', require('./routes/documents'));
+app.use('/api/announcements', require('./routes/announcements'));
+app.use('/api/feedback', require('./routes/feedback'));
+app.use('/api/work-updates', require('./routes/workUpdates'));
+app.use('/api/performance', require('./routes/performance'));
 
 app.get('/', (req, res) => res.json({ message: 'HR Portal API Running' }));
 

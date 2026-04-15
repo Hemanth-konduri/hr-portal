@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../api/axios';
+import api from '../../api/axios';
 import { Mail, AlertCircle, ArrowRight, ArrowLeft, Loader2, Building2, CheckCircle2 } from 'lucide-react';
 
 const ForgotPassword = () => {

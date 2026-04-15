@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import api from '../api/axios';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../api/axios';
 import { Lock, Eye, EyeOff, AlertCircle, AlertTriangle, ArrowRight, Loader2, ShieldCheck, Building2 } from 'lucide-react';
 
 const ChangePassword = () => {
