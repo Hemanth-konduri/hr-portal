@@ -59,7 +59,7 @@ router.get('/all', authorize('super_admin', 'admin'), async (req, res) => {
       LEFT JOIN departments d ON e.department_id = d.id
       LEFT JOIN users r ON p.reviewed_by = r.id
     `;
-    const params: any[] = [];
+    const params = [];
     if (user_id) { query += ' WHERE p.user_id = ?'; params.push(user_id); }
     query += ' ORDER BY p.created_at DESC';
     const [rows] = await pool.query(query, params);
