@@ -1,78 +1,47 @@
 const express = require('express');
-const Announcement = require('../models/Announcement');
-const auth = require('../middleware/auth');
-
 const router = express.Router();
+const { pool } = require('../config/database');
+const { authenticate, authorize } = require('../middleware/auth');
 
-// @route   POST /api/announcements
-// @desc    Create announcement
-// @access  Private (Admin)
-router.post('/', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Access denied' });
-  }
+router.use(authenticate);
 
-  const { title, content } = req.body;
-
+// Get all active announcements
+router.get('/', async (req, res) => {
   try {
-    const announcement = new Announcement({
-      title,
-      content,
-      postedBy: req.user.id,
-    });
-
-    await announcement.save();
-    res.json(announcement);
+    const [rows] = await pool.query(`
+      SELECT a.*, u.full_name as author 
+      FROM announcements a 
+      JOIN users u ON a.posted_by = u.id 
+      WHERE a.is_active = true 
+      ORDER BY a.created_at DESC
+    `);
+    res.json(rows);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
-// @route   GET /api/announcements
-// @desc    Get announcements
-// @access  Private
-router.get('/', auth, async (req, res) => {
+// Create announcement (Admin)
+router.post('/', authorize('super_admin', 'admin'), async (req, res) => {
   try {
-    const announcements = await Announcement.find({ isActive: true }).populate('postedBy', 'name').sort({ createdAt: -1 });
-    res.json(announcements);
+    const { title, content } = req.body;
+    await pool.query(
+      'INSERT INTO announcements (title, content, posted_by) VALUES (?, ?, ?)',
+      [title, content, req.user.id]
+    );
+    res.json({ msg: 'Announcement created' });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
-// @route   PUT /api/announcements/:id
-// @desc    Update announcement
-// @access  Private (Admin)
-router.put('/:id', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Access denied' });
-  }
-
+// Delete/deactivate announcement (Admin)
+router.delete('/:id', authorize('super_admin', 'admin'), async (req, res) => {
   try {
-    const announcement = await Announcement.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(announcement);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// @route   DELETE /api/announcements/:id
-// @desc    Delete announcement
-// @access  Private (Admin)
-router.delete('/:id', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Access denied' });
-  }
-
-  try {
-    await Announcement.findByIdAndRemove(req.params.id);
+    await pool.query('UPDATE announcements SET is_active = false WHERE id = ?', [req.params.id]);
     res.json({ msg: 'Announcement removed' });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 

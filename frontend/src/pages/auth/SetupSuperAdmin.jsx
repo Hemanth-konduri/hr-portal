@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../api/axios';
+import api from '../../api/axios';
 
 const SetupSuperAdmin = () => {
   const [formData, setFormData] = useState({ full_name: '', email: '', password: '' });

@@ -1,57 +1,46 @@
 const express = require('express');
-const WorkUpdate = require('../models/WorkUpdate');
-const auth = require('../middleware/auth');
-
 const router = express.Router();
+const { pool } = require('../config/database');
+const { authenticate } = require('../middleware/auth');
 
-// @route   POST /api/work-updates
-// @desc    Submit work update
-// @access  Private
-router.post('/', auth, async (req, res) => {
-  const { tasks, notes } = req.body;
+router.use(authenticate);
 
+// Submit daily work update (Employee)
+router.post('/', async (req, res) => {
   try {
-    const workUpdate = new WorkUpdate({
-      employee: req.user.id,
-      tasks,
-      notes,
-    });
-
-    await workUpdate.save();
-    res.json(workUpdate);
+    const { update_text } = req.body;
+    const date = new Date().toISOString().split('T')[0];
+    
+    await pool.query(
+      'INSERT INTO work_updates (user_id, date, update_text) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE update_text = ?',
+      [req.user.id, date, update_text, update_text]
+    );
+    res.json({ msg: 'Work update submitted successfully' });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
-// @route   GET /api/work-updates
-// @desc    Get work updates (Admin)
-// @access  Private (Admin)
-router.get('/', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Access denied' });
-  }
-
+// Get recent updates (Admin sees all, Employee sees own or team)
+router.get('/', async (req, res) => {
   try {
-    const workUpdates = await WorkUpdate.find().populate('employee', 'name employeeId').sort({ date: -1 });
-    res.json(workUpdates);
+    let query, params;
+    if (['admin', 'super_admin'].includes(req.user.role)) {
+      query = `SELECT wu.*, u.full_name, u.employee_id 
+               FROM work_updates wu JOIN users u ON wu.user_id = u.id 
+               ORDER BY wu.date DESC, wu.created_at DESC LIMIT 50`;
+      params = [];
+    } else {
+      query = `SELECT wu.*, u.full_name, u.employee_id 
+               FROM work_updates wu JOIN users u ON wu.user_id = u.id 
+               WHERE wu.user_id = ?
+               ORDER BY wu.date DESC, wu.created_at DESC LIMIT 10`;
+      params = [req.user.id];
+    }
+    const [rows] = await pool.query(query, params);
+    res.json(rows);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
-  }
-});
-
-// @route   GET /api/work-updates/my
-// @desc    Get my work updates
-// @access  Private
-router.get('/my', auth, async (req, res) => {
-  try {
-    const workUpdates = await WorkUpdate.find({ employee: req.user.id }).sort({ date: -1 });
-    res.json(workUpdates);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
