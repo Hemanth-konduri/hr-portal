@@ -7,12 +7,13 @@ const applyLeave = async (req, res) => {
     
     const start = new Date(from_date);
     const end = new Date(to_date);
-    // Rough calculation of days (inclusive)
     const total_days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
     if (leave_type === 'casual') {
-      const [balanceRows] = await pool.query('SELECT casual_remaining FROM leave_balance WHERE user_id = ?', [userId]);
-      const casual_remaining = balanceRows[0]?.casual_remaining || 0;
+      const [balanceRows] = await pool.query('SELECT casual_total, casual_used FROM leave_balance WHERE user_id = ?', [userId]);
+      const casual_remaining = balanceRows.length
+        ? (balanceRows[0].casual_total ?? 1) - (balanceRows[0].casual_used ?? 0)
+        : 1;
       
       if (total_days > casual_remaining) {
         return res.status(400).json({ msg: 'Insufficient Casual Leave balance.' });
@@ -93,11 +94,65 @@ const updateLeaveStatus = async (req, res) => {
 
 const getLeaveBalance = async (req, res) => {
   try {
-    const [balance] = await pool.query('SELECT * FROM leave_balance WHERE user_id = ?', [req.user.id]);
-    res.json(balance[0] || {});
+    const userId = req.user.id;
+    const [balance] = await pool.query('SELECT * FROM leave_balance WHERE user_id = ?', [userId]);
+    if (balance.length) {
+      // Compute casual_remaining manually in case generated column is missing
+      const row = balance[0];
+      row.casual_remaining = (row.casual_total ?? 1) - (row.casual_used ?? 0);
+      return res.json(row);
+    }
+    // Auto-create balance row if missing
+    await pool.query(
+      'INSERT INTO leave_balance (user_id, casual_total, casual_used, lop_count) VALUES (?, 1, 0, 0)',
+      [userId]
+    );
+    res.json({ user_id: userId, casual_total: 1, casual_used: 0, casual_remaining: 1, lop_count: 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+// Employee: cancel a pending leave request
+const cancelLeave = async (req, res) => {
+  try {
+    const leaveId = req.params.id;
+    const userId = req.user.id;
+
+    const [rows] = await pool.query(
+      'SELECT id, status FROM leave_requests WHERE id = ? AND user_id = ?',
+      [leaveId, userId]
+    );
+    if (!rows.length) return res.status(404).json({ msg: 'Leave request not found' });
+    if (rows[0].status !== 'pending') return res.status(400).json({ msg: 'Only pending requests can be cancelled' });
+
+    await pool.query('DELETE FROM leave_requests WHERE id = ?', [leaveId]);
+    res.json({ msg: 'Leave request cancelled' });
   } catch (err) {
     res.status(500).json({ msg: 'Server error' });
   }
 };
 
-module.exports = { applyLeave, getEmployeeLeaves, getAllLeaves, updateLeaveStatus, getLeaveBalance };
+// Admin: summary stats for leave dashboard
+const getLeaveStats = async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT
+        COUNT(*)                     AS total,
+        COALESCE(SUM(status = 'pending'),  0) AS pending,
+        COALESCE(SUM(status = 'approved'), 0) AS approved,
+        COALESCE(SUM(status = 'rejected'), 0) AS rejected,
+        COALESCE(SUM(leave_type = 'casual'), 0) AS casual_count,
+        COALESCE(SUM(leave_type = 'lop'),    0) AS lop_count,
+        COALESCE(SUM(total_days), 0)         AS total_days
+      FROM leave_requests
+    `);
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+};
+
+module.exports = { applyLeave, getEmployeeLeaves, getAllLeaves, updateLeaveStatus, getLeaveBalance, cancelLeave, getLeaveStats };

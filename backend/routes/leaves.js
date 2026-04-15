@@ -6,18 +6,22 @@ const {
   getEmployeeLeaves,
   getAllLeaves,
   updateLeaveStatus,
-  getLeaveBalance
+  getLeaveBalance,
+  cancelLeave,
+  getLeaveStats,
 } = require('../controllers/leaveController');
 
 router.use(authenticate);
 
-// Employee actions
-router.post('/apply', authorize('employee'), applyLeave);
-router.get('/', authorize('employee'), getEmployeeLeaves);
+// ── Static paths first (must come before /:id routes) ────────
+router.get('/all',     authorize('super_admin', 'admin'), getAllLeaves);
+router.get('/stats',   authorize('super_admin', 'admin'), getLeaveStats);
 router.get('/balance', authorize('employee', 'admin', 'super_admin'), getLeaveBalance);
+router.get('/my',      authorize('employee'), getEmployeeLeaves);
+router.post('/apply',  authorize('employee'), applyLeave);
 
-// Admin actions
-router.get('/all', authorize('super_admin', 'admin'), getAllLeaves);
-router.put('/:id/status', authorize('super_admin', 'admin'), updateLeaveStatus);
+// ── Dynamic :id routes last ───────────────────────────────────
+router.delete('/:id/cancel', authorize('employee'), cancelLeave);
+router.put('/:id/status',    authorize('super_admin', 'admin'), updateLeaveStatus);
 
 module.exports = router;
