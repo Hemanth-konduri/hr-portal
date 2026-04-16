@@ -18,6 +18,7 @@ router.get('/all',     authorize('super_admin', 'admin'), getAllLeaves);
 router.get('/stats',   authorize('super_admin', 'admin'), getLeaveStats);
 router.get('/balance', authorize('employee', 'admin', 'super_admin'), getLeaveBalance);
 router.get('/my',      authorize('employee'), getEmployeeLeaves);
+router.get('/',        authorize('employee'), getEmployeeLeaves);
 router.post('/apply',  authorize('employee'), applyLeave);
 
 // ── Dynamic :id routes last ───────────────────────────────────
