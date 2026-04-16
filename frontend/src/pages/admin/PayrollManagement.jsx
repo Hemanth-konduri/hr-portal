@@ -38,7 +38,7 @@ export default function PayrollManagement() {
     Object.entries(upload).forEach(([k, v]) => k !== 'file' && fd.append(k, v));
     fd.append('payslip', upload.file);
     try {
-      await api.post('/payslips/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/payslips/generate', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setUpload({ ...upload, file: null });
       fetchData();
     } catch (err) { alert(err.response?.data?.msg || 'Upload failed'); }

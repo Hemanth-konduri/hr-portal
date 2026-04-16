@@ -30,6 +30,7 @@ router.get('/stats',            authorize('super_admin', 'admin'), getPayrollSta
 router.get('/structures',       authorize('super_admin', 'admin'), getAllSalaryStructures);
 router.post('/structure',       authorize('super_admin', 'admin'), setSalaryStructure);
 router.post('/generate',        authorize('super_admin', 'admin'), upload.single('payslip'), generatePayslip);
+router.post('/upload',          authorize('super_admin', 'admin'), upload.single('payslip'), generatePayslip);
 router.get('/my',               authorize('employee', 'admin', 'super_admin'), getMyPayslips);
 
 // Dynamic :id routes last

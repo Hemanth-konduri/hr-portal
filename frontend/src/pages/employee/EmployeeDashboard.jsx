@@ -25,7 +25,7 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     Promise.all([
       api.get('/attendance/my').catch(() => ({ data: [] })),
-      api.get('/leaves').catch(() => ({ data: [] })),
+      api.get('/leaves/my').catch(() => ({ data: [] })),
       api.get('/announcements').catch(() => ({ data: [] })),
     ]).then(([a, l, ann]) => {
       setAttendance(a.data);

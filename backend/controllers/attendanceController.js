@@ -1,10 +1,16 @@
 const { pool } = require('../config/database');
 
+const getLocalDateString = () => {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
+
 const checkIn = async (req, res) => {
   try {
-    const { latitude, longitude } = req.body;
+    const { latitude, longitude, location_name } = req.body;
     const userId = req.user.id;
-    const date = new Date().toISOString().split('T')[0];
+    const date = getLocalDateString();
 
     const [existing] = await pool.query(
       'SELECT id FROM attendance WHERE user_id = ? AND date = ?',
@@ -18,9 +24,9 @@ const checkIn = async (req, res) => {
     const status = isLate ? 'half_day' : 'present';
 
     await pool.query(
-      `INSERT INTO attendance (user_id, date, check_in_time, check_in_lat, check_in_lng, status, is_late)
-       VALUES (?, ?, NOW(), ?, ?, ?, ?)`,
-      [userId, date, latitude, longitude, status, isLate]
+      `INSERT INTO attendance (user_id, date, check_in_time, check_in_lat, check_in_lng, status, is_late, notes)
+       VALUES (?, ?, NOW(), ?, ?, ?, ?, ?)`,
+      [userId, date, latitude, longitude, status, isLate, location_name || null]
     );
 
     if (isLate) {
@@ -30,7 +36,12 @@ const checkIn = async (req, res) => {
       );
     }
 
-    res.json({ msg: 'Check-in successful', isLate, status });
+    const [rows] = await pool.query(
+      'SELECT * FROM attendance WHERE user_id = ? AND date = ?',
+      [userId, date]
+    );
+
+    res.json({ msg: 'Check-in successful', isLate, status, attendance: rows[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: 'Server error' });
@@ -41,7 +52,7 @@ const checkOut = async (req, res) => {
   try {
     const { latitude, longitude } = req.body;
     const userId = req.user.id;
-    const date = new Date().toISOString().split('T')[0];
+    const date = getLocalDateString();
 
     const [attendance] = await pool.query(
       'SELECT id, check_in_time, check_out_time FROM attendance WHERE user_id = ? AND date = ?',
@@ -62,7 +73,9 @@ const checkOut = async (req, res) => {
       [latitude, longitude, Math.max(0, overtimeHours), attendance[0].id]
     );
 
-    res.json({ msg: 'Check-out successful', overtimeHours: Math.max(0, overtimeHours) });
+    const [rows] = await pool.query('SELECT * FROM attendance WHERE id = ?', [attendance[0].id]);
+
+    res.json({ msg: 'Check-out successful', overtimeHours: Math.max(0, overtimeHours), attendance: rows[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ msg: 'Server error' });
