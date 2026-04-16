@@ -81,7 +81,7 @@ const sendCredentialsMail = async ({ to, name, email, password, role }) => {
       ⚠️ You will be required to change your password on your first login. Please do not share your credentials with anyone.
     </div>
     <p style="text-align:center;">
-      <a href="http://localhost:5173" class="btn">Login to HR Portal →</a>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn">Login to HR Portal →</a>
     </p>
     <div class="divider"></div>
     <p style="font-size:13px;color:#718096;">If you did not expect this email, please contact your HR administrator immediately.</p>
@@ -126,7 +126,7 @@ const sendPasswordResetSuccessMail = async ({ to, name }) => {
       <p><strong>Reset at:</strong> ${resetTime} (IST)</p>
     </div>
     <p style="text-align:center;">
-      <a href="http://localhost:5173" class="btn">Login to HR Portal →</a>
+      <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" class="btn">Login to HR Portal →</a>
     </p>
     <div class="warning">
       ⚠️ If you did not reset your password, your account may be compromised. Contact your HR administrator immediately or use <strong>Forgot Password</strong> to secure your account.
