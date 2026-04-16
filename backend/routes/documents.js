@@ -106,8 +106,8 @@ router.get('/all', authorize('super_admin', 'admin'), async (req, res) => {
       WHERE 1=1
     `;
     const params = [];
-    if (user_id)      { query += ' AND d.user_id = ?';       params.push(user_id); }
-    if (document_type){ query += ' AND d.document_type = ?'; params.push(document_type); }
+    if (user_id)       { query += ' AND d.user_id = ?';       params.push(user_id); }
+    if (document_type) { query += ' AND d.document_type = ?'; params.push(document_type); }
     if (status && cols.verification_status) {
       query += ' AND d.verification_status = ?';
       params.push(status);
@@ -247,7 +247,6 @@ router.delete('/:id', async (req, res) => {
     const abs = path.join(__dirname, '..', doc.file_path);
     if (fs.existsSync(abs)) fs.unlinkSync(abs);
 
-    // FIX: was missing array wrapper — caused "params is not iterable" error
     await pool.query('DELETE FROM documents WHERE id = ?', [req.params.id]);
     res.json({ msg: 'Document deleted' });
   } catch (err) {

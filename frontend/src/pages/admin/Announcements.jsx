@@ -22,7 +22,7 @@ export default function Announcements() {
   const fetchAnnouncements = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/announcements');
+      const { data } = await api.get('/announcements/all');
       setAnnouncements(data);
     } catch { } finally { setLoading(false); }
   };
@@ -40,7 +40,7 @@ export default function Announcements() {
 
   const handleToggle = async (id, isActive) => {
     try {
-      await api.patch(`/announcements/${id}`, { is_active: !isActive });
+      await api.patch(`/announcements/${id}/toggle-active`);
       setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, is_active: !isActive } : a));
     } catch { alert('Error updating'); }
   };

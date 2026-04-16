@@ -26,7 +26,7 @@ export default function LeaveApplication() {
     try {
       const [b, l] = await Promise.all([
         api.get('/leaves/balance').catch(() => ({ data: { casual_total: 1, casual_remaining: 1, lop_count: 0 } })),
-        api.get('/leaves'),
+        api.get('/leaves/my'),
       ]);
       setBalance(b.data);
       setLeaves(l.data);
