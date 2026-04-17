@@ -90,7 +90,9 @@ export default function AppSidebar({ mobileOpen = false, onClose }: AppSidebarPr
       <div
         className={cn(
           'fixed inset-0 z-40 bg-black/40 transition-opacity md:hidden',
-          mobileOpen ? 'visible opacity-100' : 'invisible opacity-0'
+          mobileOpen
+            ? 'visible opacity-100 pointer-events-auto'
+            : 'invisible opacity-0 pointer-events-none'
         )}
         aria-hidden="true"
         onClick={onClose}
@@ -99,8 +101,11 @@ export default function AppSidebar({ mobileOpen = false, onClose }: AppSidebarPr
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#0f0f13] text-white shadow-xl transition-transform duration-300 md:relative md:translate-x-0 md:flex',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          mobileOpen
+            ? 'translate-x-0 pointer-events-auto'
+            : '-translate-x-full pointer-events-none md:pointer-events-auto'
         )}
+        aria-hidden={!mobileOpen}
       >
         {/* Logo */}
         <div className="flex items-center justify-between gap-3 px-6 py-6">

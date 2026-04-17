@@ -15,6 +15,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!isLoading && !user) router.replace('/login')
   }, [user, isLoading, router])
 
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -27,8 +29,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   if (!user) return null
-
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
