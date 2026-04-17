@@ -11,6 +11,19 @@ const auditLog = async (userId, action, targetUserId = null, details = null, ip 
   );
 };
 
+const resolveDepartmentId = async (departmentIdOrName) => {
+  if (!departmentIdOrName) return null;
+  if (typeof departmentIdOrName === 'number' || /^\d+$/.test(String(departmentIdOrName).trim())) {
+    return Number(departmentIdOrName);
+  }
+
+  const [rows] = await pool.query('SELECT id FROM departments WHERE name = ?', [departmentIdOrName]);
+  if (!rows.length) {
+    throw new Error('Invalid department');
+  }
+  return rows[0].id;
+};
+
 // ════════════════════════════════════════════════════════════
 // POST /api/users/create
 // Super Admin → can create admin or employee
@@ -18,7 +31,16 @@ const auditLog = async (userId, action, targetUserId = null, details = null, ip 
 // ════════════════════════════════════════════════════════════
 const createUser = async (req, res) => {
   try {
-    const { full_name, email, role, department_id, position, phone, date_of_joining } = req.body;
+    const { full_name, email, role, department_id: departmentIdRaw, position, phone, date_of_joining } = req.body;
+    let department_id = null;
+
+    if (departmentIdRaw) {
+      try {
+        department_id = await resolveDepartmentId(departmentIdRaw);
+      } catch (error) {
+        return res.status(400).json({ msg: 'Invalid department selected' });
+      }
+    }
 
     if (!full_name || !email || !role) {
       return res.status(400).json({ msg: 'Name, email and role are required' });
@@ -177,7 +199,16 @@ const updateUserStatus = async (req, res) => {
 // ════════════════════════════════════════════════════════════
 const updateUser = async (req, res) => {
   try {
-    const { full_name, position, phone, department_id, date_of_joining, address, date_of_birth } = req.body;
+    const { full_name, position, phone, department_id: departmentIdRaw, date_of_joining, address, date_of_birth } = req.body;
+    let department_id = null;
+
+    if (departmentIdRaw) {
+      try {
+        department_id = await resolveDepartmentId(departmentIdRaw);
+      } catch (error) {
+        return res.status(400).json({ msg: 'Invalid department selected' });
+      }
+    }
 
     const [rows] = await pool.query('SELECT id, role FROM users WHERE id = ?', [req.params.id]);
     if (!rows.length) return res.status(404).json({ msg: 'User not found' });
