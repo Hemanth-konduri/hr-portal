@@ -13,12 +13,18 @@ const auditLog = async (userId, action, targetUserId = null, details = null, ip 
 
 const resolveDepartmentId = async (departmentIdOrName) => {
   if (!departmentIdOrName) return null;
-  if (typeof departmentIdOrName === 'number' || /^\d+$/.test(String(departmentIdOrName).trim())) {
-    return Number(departmentIdOrName);
+  const rawValue = String(departmentIdOrName).trim();
+  if (/^\d+$/.test(rawValue)) {
+    return Number(rawValue);
   }
 
-  const [rows] = await pool.query('SELECT id FROM departments WHERE name = ?', [departmentIdOrName]);
+  const [rows] = await pool.query(
+    'SELECT id FROM departments WHERE TRIM(LOWER(name)) = LOWER(?)',
+    [rawValue]
+  );
+
   if (!rows.length) {
+    console.warn('Department lookup failed for:', rawValue);
     throw new Error('Invalid department');
   }
   return rows[0].id;
