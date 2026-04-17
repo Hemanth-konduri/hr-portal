@@ -23,11 +23,14 @@ const resolveDepartmentId = async (departmentIdOrName) => {
     [rawValue]
   );
 
-  if (!rows.length) {
-    console.warn('Department lookup failed for:', rawValue);
-    throw new Error('Invalid department');
+  if (rows.length) {
+    return rows[0].id;
   }
-  return rows[0].id;
+
+  // If the selected department is not seeded in the deployed DB, create it.
+  console.warn('Department not found; creating new department row for:', rawValue);
+  const [insertResult] = await pool.query('INSERT INTO departments (name) VALUES (?)', [rawValue]);
+  return insertResult.insertId;
 };
 
 // ════════════════════════════════════════════════════════════
