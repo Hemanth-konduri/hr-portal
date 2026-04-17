@@ -28,58 +28,51 @@ const upload = multer({
 
 router.use(authenticate);
 
-// Helper — check which extra columns exist (run once on first request)
-let extraCols = null;
-async function getExtraCols() {
-  if (extraCols !== null) return extraCols;
+// ── Detect which extra columns exist (cached after first call) ────────────
+let _cols = null;
+async function getCols() {
+  if (_cols) return _cols;
   try {
-    const [cols] = await pool.query(
+    const [rows] = await pool.query(
       `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'documents'`
     );
-    const names = cols.map(c => c.COLUMN_NAME);
-    extraCols = {
+    const names = rows.map(r => r.COLUMN_NAME);
+    _cols = {
       verification_status: names.includes('verification_status'),
       verified_by:         names.includes('verified_by'),
+      verified_at:         names.includes('verified_at'),
       hr_notes:            names.includes('hr_notes'),
       expiry_date:         names.includes('expiry_date'),
     };
   } catch {
-    extraCols = { verification_status: false, verified_by: false, hr_notes: false, expiry_date: false };
+    _cols = { verification_status: false, verified_by: false, verified_at: false, hr_notes: false, expiry_date: false };
   }
-  return extraCols;
+  return _cols;
 }
 
-function buildSelectCols(cols) {
-  const extra = [];
-  if (cols.verification_status) extra.push("d.verification_status");
-  else extra.push("'pending' AS verification_status");
-  if (cols.verified_by)  extra.push("d.verified_by");
-  else extra.push("NULL AS verified_by");
-  if (cols.hr_notes)     extra.push("d.hr_notes");
-  else extra.push("NULL AS hr_notes");
-  if (cols.expiry_date)  extra.push("d.expiry_date");
-  else extra.push("NULL AS expiry_date");
-  return extra.join(', ');
+// Build extra SELECT columns with safe fallbacks
+function extraSelect(cols) {
+  return [
+    cols.verification_status ? 'd.verification_status' : "'pending' AS verification_status",
+    cols.verified_by         ? 'd.verified_by'         : 'NULL AS verified_by',
+    cols.hr_notes            ? 'd.hr_notes'            : 'NULL AS hr_notes',
+    cols.expiry_date         ? 'd.expiry_date'         : 'NULL AS expiry_date',
+  ].join(', ');
 }
 
 // ── GET /my ───────────────────────────────────────────────────────────────
 router.get('/my', async (req, res) => {
   try {
-    const cols = await getExtraCols();
-    const extra = buildSelectCols(cols);
-    const verifiedJoin = cols.verified_by
-      ? 'LEFT JOIN users v ON d.verified_by = v.id'
-      : '';
-    const verifiedName = cols.verified_by
-      ? 'v.full_name AS verified_by_name,'
-      : "NULL AS verified_by_name,";
+    const cols = await getCols();
+    const verifiedJoin = cols.verified_by ? 'LEFT JOIN users v ON d.verified_by = v.id' : '';
+    const verifiedName = cols.verified_by ? 'v.full_name AS verified_by_name,' : 'NULL AS verified_by_name,';
 
     const [rows] = await pool.query(
       `SELECT d.id, d.user_id, d.document_type, d.file_name, d.file_path,
               d.uploaded_by, d.created_at,
               ${verifiedName}
-              ${extra}
+              ${extraSelect(cols)}
        FROM documents d
        ${verifiedJoin}
        WHERE d.user_id = ?
@@ -96,14 +89,9 @@ router.get('/my', async (req, res) => {
 // ── GET /all ──────────────────────────────────────────────────────────────
 router.get('/all', authorize('super_admin', 'admin'), async (req, res) => {
   try {
-    const cols = await getExtraCols();
-    const extra = buildSelectCols(cols);
-    const verifiedJoin = cols.verified_by
-      ? 'LEFT JOIN users v ON d.verified_by = v.id'
-      : '';
-    const verifiedName = cols.verified_by
-      ? 'v.full_name AS verified_by_name,'
-      : "NULL AS verified_by_name,";
+    const cols = await getCols();
+    const verifiedJoin = cols.verified_by ? 'LEFT JOIN users v ON d.verified_by = v.id' : '';
+    const verifiedName = cols.verified_by ? 'v.full_name AS verified_by_name,' : 'NULL AS verified_by_name,';
 
     const { user_id, status, document_type } = req.query;
     let query = `
@@ -111,20 +99,21 @@ router.get('/all', authorize('super_admin', 'admin'), async (req, res) => {
              d.uploaded_by, d.created_at,
              u.full_name AS owner_name, u.employee_id,
              ${verifiedName}
-             ${extra}
+             ${extraSelect(cols)}
       FROM documents d
       JOIN users u ON d.user_id = u.id
       ${verifiedJoin}
       WHERE 1=1
     `;
     const params = [];
-    if (user_id)  { query += ' AND d.user_id = ?';       params.push(user_id); }
+    if (user_id)       { query += ' AND d.user_id = ?';       params.push(user_id); }
     if (document_type) { query += ' AND d.document_type = ?'; params.push(document_type); }
     if (status && cols.verification_status) {
       query += ' AND d.verification_status = ?';
       params.push(status);
     }
     query += ' ORDER BY d.created_at DESC';
+
     const [rows] = await pool.query(query, params);
     res.json(rows);
   } catch (err) {
@@ -136,7 +125,7 @@ router.get('/all', authorize('super_admin', 'admin'), async (req, res) => {
 // ── GET /stats ────────────────────────────────────────────────────────────
 router.get('/stats', authorize('super_admin', 'admin'), async (req, res) => {
   try {
-    const cols = await getExtraCols();
+    const cols = await getCols();
     let query;
     if (cols.verification_status) {
       query = `SELECT
@@ -149,11 +138,11 @@ router.get('/stats', authorize('super_admin', 'admin'), async (req, res) => {
       FROM documents`;
     } else {
       query = `SELECT
-        COUNT(*)            AS total,
-        COUNT(*)            AS pending,
-        0                   AS verified,
-        0                   AS rejected,
-        0                   AS expired,
+        COUNT(*)                AS total,
+        COUNT(*)                AS pending,
+        0                       AS verified,
+        0                       AS rejected,
+        0                       AS expired,
         COUNT(DISTINCT user_id) AS employees_with_docs
       FROM documents`;
     }
@@ -168,6 +157,7 @@ router.get('/stats', authorize('super_admin', 'admin'), async (req, res) => {
 router.post('/', upload.single('document'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ msg: 'File is required' });
+
     const { document_type, expiry_date } = req.body;
     if (!document_type) return res.status(400).json({ msg: 'document_type is required' });
 
@@ -176,7 +166,7 @@ router.post('/', upload.single('document'), async (req, res) => {
       targetUser = req.body.user_id;
     }
 
-    const cols = await getExtraCols();
+    const cols = await getCols();
     const file_path = `/uploads/documents/${req.file.filename}`;
 
     if (cols.expiry_date) {
@@ -202,7 +192,7 @@ router.post('/', upload.single('document'), async (req, res) => {
 // ── PATCH /:id/verify ─────────────────────────────────────────────────────
 router.patch('/:id/verify', authorize('super_admin', 'admin'), async (req, res) => {
   try {
-    const cols = await getExtraCols();
+    const cols = await getCols();
     if (!cols.verification_status) {
       return res.status(400).json({ msg: 'Run documents_migration.sql to enable verification' });
     }
@@ -210,16 +200,17 @@ router.patch('/:id/verify', authorize('super_admin', 'admin'), async (req, res) 
     const allowed = ['verified', 'rejected', 'expired', 'pending'];
     if (!allowed.includes(status)) return res.status(400).json({ msg: 'Invalid status' });
 
+    const setClauses = ['verification_status = ?', 'verified_by = ?', 'verified_at = NOW()'];
+    const params = [status, req.user.id];
+    if (cols.hr_notes && hr_notes) {
+      setClauses.push('hr_notes = ?');
+      params.push(hr_notes);
+    }
+    params.push(req.params.id);
+
     await pool.query(
-      `UPDATE documents SET
-         verification_status = ?,
-         verified_by = ?,
-         verified_at = NOW()
-         ${cols.hr_notes && hr_notes ? ', hr_notes = ?' : ''}
-       WHERE id = ?`,
-      cols.hr_notes && hr_notes
-        ? [status, req.user.id, hr_notes, req.params.id]
-        : [status, req.user.id, req.params.id]
+      `UPDATE documents SET ${setClauses.join(', ')} WHERE id = ?`,
+      params
     );
     res.json({ msg: `Document marked as ${status}` });
   } catch (err) {
@@ -230,7 +221,7 @@ router.patch('/:id/verify', authorize('super_admin', 'admin'), async (req, res) 
 // ── PATCH /:id/notes ──────────────────────────────────────────────────────
 router.patch('/:id/notes', authorize('super_admin', 'admin'), async (req, res) => {
   try {
-    const cols = await getExtraCols();
+    const cols = await getCols();
     if (!cols.hr_notes) {
       return res.status(400).json({ msg: 'Run documents_migration.sql to enable HR notes' });
     }
@@ -259,6 +250,7 @@ router.delete('/:id', async (req, res) => {
     await pool.query('DELETE FROM documents WHERE id = ?', [req.params.id]);
     res.json({ msg: 'Document deleted' });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ msg: 'Server error' });
   }
 });
