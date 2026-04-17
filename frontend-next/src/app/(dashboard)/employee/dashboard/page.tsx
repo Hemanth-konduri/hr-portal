@@ -162,7 +162,11 @@ export default function EmployeeDashboard() {
     setActionLoading(true)
     const call = async (lat?: number, lng?: number) => {
       try {
-        const res = await api.post('/attendance/checkin', lat ? { latitude: lat, longitude: lng } : {})
+        const res = await api.post('/attendance/checkin', {
+          latitude: lat,
+          longitude: lng,
+          client_time: new Date().toISOString(),
+        })
         toast.success(res.data.isLate ? 'Checked in — marked as late' : 'Checked in successfully!')
         fetchAll()
       } catch (err: any) {

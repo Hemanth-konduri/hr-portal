@@ -140,6 +140,7 @@ export function CheckInCard({ onRefresh }: Props) {
         latitude:      loc.lat,
         longitude:     loc.lng,
         location_name: loc.address,
+        client_time:   new Date().toISOString(),
       })
       setToday({
         checked_in:    true,
