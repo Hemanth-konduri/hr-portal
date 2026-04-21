@@ -126,12 +126,12 @@ const getMyAttendanceSummary = async (req, res) => {
     const [rows] = await pool.query(
       `SELECT
         COUNT(*) AS total_days,
-        SUM(status = 'present')  AS present,
-        SUM(status = 'absent')   AS absent,
-        SUM(status = 'half_day') AS half_day,
-        SUM(status = 'lop')      AS lop,
-        SUM(is_late = 1)         AS late_count,
-        SUM(overtime_hours)      AS total_overtime
+        SUM(CASE WHEN status = 'present'  THEN 1 ELSE 0 END) AS present,
+        SUM(CASE WHEN status = 'absent'   THEN 1 ELSE 0 END) AS absent,
+        SUM(CASE WHEN status = 'half_day' THEN 1 ELSE 0 END) AS half_day,
+        SUM(CASE WHEN status = 'lop'      THEN 1 ELSE 0 END) AS lop,
+        SUM(CASE WHEN is_late = 1         THEN 1 ELSE 0 END) AS late_count,
+        COALESCE(SUM(overtime_hours), 0)                     AS total_overtime
        FROM attendance
        WHERE user_id = ? AND MONTH(date) = ? AND YEAR(date) = ?`,
       [userId, month, year]
@@ -190,14 +190,14 @@ const getAttendanceSummary = async (req, res) => {
 
     let query = `
       SELECT
-        COUNT(DISTINCT a.user_id)       AS total_employees,
-        SUM(a.status = 'present')       AS present,
-        SUM(a.status = 'absent')        AS absent,
-        SUM(a.status = 'half_day')      AS half_day,
-        SUM(a.status = 'lop')           AS lop,
-        SUM(a.is_late = 1)              AS late_count,
-        SUM(a.overtime_hours)           AS total_overtime,
-        COUNT(*)                        AS total_records
+        COUNT(DISTINCT a.user_id)                                    AS total_employees,
+        SUM(CASE WHEN a.status = 'present'  THEN 1 ELSE 0 END)      AS present,
+        SUM(CASE WHEN a.status = 'absent'   THEN 1 ELSE 0 END)      AS absent,
+        SUM(CASE WHEN a.status = 'half_day' THEN 1 ELSE 0 END)      AS half_day,
+        SUM(CASE WHEN a.status = 'lop'      THEN 1 ELSE 0 END)      AS lop,
+        SUM(CASE WHEN a.is_late = 1         THEN 1 ELSE 0 END)      AS late_count,
+        COALESCE(SUM(a.overtime_hours), 0)                          AS total_overtime,
+        COUNT(*)                                                     AS total_records
       FROM attendance a
       JOIN users u ON a.user_id = u.id
       LEFT JOIN departments d ON u.department_id = d.id
@@ -225,12 +225,12 @@ const getEmployeeMonthlySummary = async (req, res) => {
     let query = `
       SELECT
         u.id, u.full_name, u.employee_id, d.name AS department,
-        SUM(a.status = 'present')  AS present,
-        SUM(a.status = 'absent')   AS absent,
-        SUM(a.status = 'half_day') AS half_day,
-        SUM(a.status = 'lop')      AS lop,
-        SUM(a.is_late = 1)         AS late_count,
-        ROUND(SUM(a.overtime_hours), 2) AS overtime_hours
+        SUM(CASE WHEN a.status = 'present'  THEN 1 ELSE 0 END) AS present,
+        SUM(CASE WHEN a.status = 'absent'   THEN 1 ELSE 0 END) AS absent,
+        SUM(CASE WHEN a.status = 'half_day' THEN 1 ELSE 0 END) AS half_day,
+        SUM(CASE WHEN a.status = 'lop'      THEN 1 ELSE 0 END) AS lop,
+        SUM(CASE WHEN a.is_late = 1         THEN 1 ELSE 0 END) AS late_count,
+        ROUND(COALESCE(SUM(a.overtime_hours), 0), 2)           AS overtime_hours
       FROM users u
       LEFT JOIN attendance a ON u.id = a.user_id
         AND MONTH(a.date) = ? AND YEAR(a.date) = ?

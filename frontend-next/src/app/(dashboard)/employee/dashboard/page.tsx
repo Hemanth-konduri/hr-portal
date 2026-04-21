@@ -127,7 +127,14 @@ export default function EmployeeDashboard() {
       ])
 
       setRecords(recRes.data)
-      setSummary(sumRes.data)
+      setSummary(sumRes.data ? {
+        present:        Number(sumRes.data.present        ?? 0),
+        absent:         Number(sumRes.data.absent         ?? 0),
+        half_day:       Number(sumRes.data.half_day       ?? 0),
+        lop:            Number(sumRes.data.lop            ?? 0),
+        late_count:     Number(sumRes.data.late_count     ?? 0),
+        total_overtime: Number(sumRes.data.total_overtime ?? 0),
+      } : null)
       setLeaves(leavesRes.data)
       setBalance(balRes.data)
       setPayslips(payRes.data)
