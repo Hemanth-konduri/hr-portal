@@ -384,102 +384,77 @@ export default function EmployeeDashboard() {
         </Card>
 
         {/* Monthly Payslips */}
-        <Card className="overflow-hidden border-0 shadow-md">
-          {/* gradient header */}
-          <div className="bg-gradient-to-br from-emerald-600 to-teal-700 px-5 py-4 relative overflow-hidden">
-            <div className="absolute -top-4 -right-4 h-20 w-20 rounded-full bg-white/10" />
-            <div className="absolute -bottom-6 -left-2 h-16 w-16 rounded-full bg-white/5" />
-            <div className="relative flex items-start justify-between">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-100/70">Payslips · {currentYear}</p>
-                {latestPayslip ? (
-                  <>
-                    <p className="mt-0.5 text-2xl font-bold text-white">₹{Number(latestPayslip.net_salary).toLocaleString()}</p>
-                    <p className="text-[11px] text-emerald-100/60">Net · {MONTHS[latestPayslip.month - 1]} {latestPayslip.year}</p>
-                  </>
-                ) : (
-                  <p className="mt-1 text-sm text-emerald-100/60">No payslips yet</p>
-                )}
+        <Card className="border-2 border-emerald-100">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                <DollarSign size={15} />
               </div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15">
-                <DollarSign size={16} className="text-white" />
+              <div>
+                <CardTitle className="text-sm font-semibold">Payslips</CardTitle>
+                <CardDescription className="text-xs">{currentYear} — monthly overview</CardDescription>
               </div>
             </div>
-          </div>
-
-          <CardContent className="p-3 space-y-1.5">
+          </CardHeader>
+          <CardContent className="space-y-1.5 pt-0">
             {visibleMonths.map(m => {
-              const slip = payslipMap.get(m)
+              const slip      = payslipMap.get(m)
               const isCurrent = m === currentMonth
               return (
                 <div
                   key={m}
                   className={cn(
-                    'group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors',
-                    slip ? 'hover:bg-emerald-50/60 cursor-pointer' : 'opacity-60',
-                    isCurrent && !slip && 'bg-amber-50/50'
+                    'flex items-center justify-between rounded-lg px-3 py-2 border',
+                    slip ? 'hover:bg-muted/40 cursor-pointer' : 'bg-muted/20',
+                    isCurrent && !slip && 'border-amber-200 bg-amber-50/40'
                   )}
                   onClick={() => slip && setSelectedPayslip(slip)}
                 >
-                  {/* month pill */}
-                  <div className={cn(
-                    'flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-lg text-center',
-                    slip ? 'bg-emerald-100 text-emerald-700' : isCurrent ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'
-                  )}>
-                    <span className="text-[10px] font-bold leading-none">{MONTHS[m - 1]}</span>
-                  </div>
-
-                  {/* info */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-xs font-semibold text-foreground w-7 shrink-0">{MONTHS[m - 1]}</span>
                     {slip ? (
-                      <>
-                        <p className="text-sm font-bold text-foreground font-mono">₹{Number(slip.net_salary).toLocaleString()}</p>
-                        <p className="text-[10px] text-muted-foreground">Gross ₹{Number(slip.gross_salary).toLocaleString()}</p>
-                      </>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-bold text-foreground font-mono">₹{Number(slip.net_salary).toLocaleString()}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">Gross ₹{Number(slip.gross_salary).toLocaleString()}</span>
+                        {slip.lop_days > 0 && (
+                          <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 px-1.5 py-0">
+                            LOP {slip.lop_days}d
+                          </Badge>
+                        )}
+                      </div>
                     ) : (
-                      <>
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {isCurrent ? 'Not generated yet' : 'Not generated'}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground/60">
-                          {isCurrent ? 'Check back later' : '—'}
-                        </p>
-                      </>
+                      <span className={cn('text-[10px] italic', isCurrent ? 'text-amber-600' : 'text-muted-foreground')}>
+                        {isCurrent ? 'Not generated yet' : 'Not generated'}
+                      </span>
                     )}
                   </div>
-
-                  {/* right side */}
                   {slip ? (
-                    <div className="flex items-center gap-2 shrink-0">
-                      {slip.lop_days > 0 && (
-                        <Badge className="text-[10px] bg-orange-100 text-orange-700 border-0 px-1.5 py-0 h-5">
-                          -{slip.lop_days}d LOP
-                        </Badge>
-                      )}
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                        <Eye size={12} />
-                      </div>
-                    </div>
-                  ) : isCurrent ? (
-                    <Badge className="text-[10px] bg-amber-100 text-amber-700 border-0 shrink-0">Pending</Badge>
-                  ) : null}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={e => { e.stopPropagation(); setSelectedPayslip(slip) }}
+                    >
+                      <Eye size={13} />
+                    </Button>
+                  ) : (
+                    <span className="h-7 w-7" />
+                  )}
                 </div>
               )
             })}
-
             {monthsToShow.length > 3 && (
               <button
-                className="w-full rounded-xl py-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors"
+                className="w-full text-xs text-muted-foreground hover:text-foreground font-medium pt-1 text-center"
                 onClick={e => { e.stopPropagation(); setShowAllMonths(v => !v) }}
               >
                 {showAllMonths ? '↑ Show less' : `↓ View all ${monthsToShow.length} months`}
               </button>
             )}
-
             {monthsToShow.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
-                <DollarSign size={28} className="opacity-20" />
-                <p className="text-xs">No data available</p>
+              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground gap-1">
+                <DollarSign size={24} className="opacity-20" />
+                <p className="text-xs">No payslip data available</p>
               </div>
             )}
           </CardContent>
@@ -487,22 +462,16 @@ export default function EmployeeDashboard() {
 
         {/* Payslip Detail Dialog */}
         <Dialog open={!!selectedPayslip} onOpenChange={v => !v && setSelectedPayslip(null)}>
-          <DialogContent className="max-w-sm p-0 overflow-hidden">
-            {/* dialog header gradient */}
-            <div className="bg-gradient-to-br from-emerald-600 to-teal-700 px-6 py-5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-emerald-100/70">
-                {selectedPayslip ? `${MONTHS[selectedPayslip.month - 1]} ${selectedPayslip.year}` : ''}
-              </p>
-              <p className="text-3xl font-bold text-white mt-1">
-                {selectedPayslip ? `₹${Number(selectedPayslip.net_salary).toLocaleString()}` : ''}
-              </p>
-              <p className="text-xs text-emerald-100/60 mt-0.5">Net Salary</p>
-            </div>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-base">
+                Payslip — {selectedPayslip ? `${MONTHS[selectedPayslip.month - 1]} ${selectedPayslip.year}` : ''}
+              </DialogTitle>
+            </DialogHeader>
             {selectedPayslip && (
-              <div className="p-5 space-y-4">
-                {/* earnings */}
-                <div className="rounded-xl bg-muted/40 p-3 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Earnings</p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Earnings</p>
                   {[
                     { label: 'Basic Salary', value: selectedPayslip.basic },
                     { label: 'HRA',          value: selectedPayslip.hra },
@@ -510,29 +479,33 @@ export default function EmployeeDashboard() {
                   ].map(row => (
                     <div key={row.label} className="flex justify-between text-sm">
                       <span className="text-muted-foreground">{row.label}</span>
-                      <span className="font-mono font-semibold">
+                      <span className="font-mono font-medium">
                         {row.value != null ? `₹${Number(row.value).toLocaleString()}` : '—'}
                       </span>
                     </div>
                   ))}
                   <Separator />
-                  <div className="flex justify-between text-sm font-bold">
+                  <div className="flex justify-between text-sm font-semibold">
                     <span>Gross Salary</span>
                     <span className="font-mono">₹{Number(selectedPayslip.gross_salary).toLocaleString()}</span>
                   </div>
                 </div>
-                {/* deductions */}
-                <div className="rounded-xl bg-red-50/60 p-3 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-red-400">Deductions</p>
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Deductions</p>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">LOP ({selectedPayslip.lop_days} days)</span>
-                    <span className="font-mono font-semibold text-red-500">
+                    <span className="font-mono text-red-500">
                       {selectedPayslip.lop_deduction > 0 ? `-₹${Number(selectedPayslip.lop_deduction).toLocaleString()}` : '—'}
                     </span>
                   </div>
                 </div>
+                <Separator />
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 px-4 py-3">
+                  <span className="text-sm font-semibold">Net Salary</span>
+                  <span className="text-xl font-bold">₹{Number(selectedPayslip.net_salary).toLocaleString()}</span>
+                </div>
                 <Link href="/employee/payslips" className="block">
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9">View All Payslips →</Button>
+                  <Button variant="outline" size="sm" className="w-full text-xs">View All Payslips →</Button>
                 </Link>
               </div>
             )}
