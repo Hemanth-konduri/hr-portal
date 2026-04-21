@@ -8,7 +8,7 @@ const getLocalDateString = () => {
 
 const checkIn = async (req, res) => {
   try {
-    const { latitude, longitude, location_name } = req.body;
+    const { latitude, longitude, location_name, client_time } = req.body;
     const userId = req.user.id;
     const date = getLocalDateString();
 
@@ -18,8 +18,18 @@ const checkIn = async (req, res) => {
     );
     if (existing.length) return res.status(400).json({ msg: 'Already checked in today' });
 
-    const now = new Date();
-    const checkInTime = now.toLocaleTimeString('en-US', { hour12: false });
+    // Use client's local time for late calculation, fallback to server time
+    let checkInTime;
+    if (client_time) {
+      // Parse client time and extract HH:MM:SS
+      const clientDate = new Date(client_time);
+      checkInTime = clientDate.toLocaleTimeString('en-US', { hour12: false });
+    } else {
+      // Fallback to server time
+      const now = new Date();
+      checkInTime = now.toLocaleTimeString('en-US', { hour12: false });
+    }
+
     const isLate = checkInTime > '09:30:00';
     const status = isLate ? 'half_day' : 'present';
 

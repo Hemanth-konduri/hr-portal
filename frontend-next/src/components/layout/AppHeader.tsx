@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-import { Bell, User, KeyRound, LogOut, ChevronDown } from 'lucide-react'
+import { Bell, User, KeyRound, LogOut, ChevronDown, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
@@ -45,7 +45,11 @@ const roleBadgeClass: Record<string, string> = {
   employee:    'bg-violet-100 text-violet-800 border-violet-200',
 }
 
-export default function AppHeader() {
+interface AppHeaderProps {
+  onOpenSidebar?: () => void
+}
+
+export default function AppHeader({ onOpenSidebar }: AppHeaderProps) {
   const { user, logout } = useAuth()
   const pathname = usePathname()
   const router   = useRouter()
@@ -67,11 +71,23 @@ export default function AppHeader() {
   }
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card px-6 lg:px-8">
-      {/* Left — page title */}
-      <div>
-        <h1 className="text-lg font-bold text-foreground tracking-tight">{title}</h1>
-        <p className="text-xs text-muted-foreground">{today}</p>
+    <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card px-4 sm:px-6 lg:px-8">
+      {/* Left — mobile menu + page title */}
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onOpenSidebar}
+          className="inline-flex md:hidden"
+          aria-label="Open navigation"
+        >
+          <Menu size={18} />
+        </Button>
+
+        <div>
+          <h1 className="text-lg font-bold text-foreground tracking-tight">{title}</h1>
+          <p className="text-xs text-muted-foreground">{today}</p>
+        </div>
       </div>
 
       {/* Right — actions */}

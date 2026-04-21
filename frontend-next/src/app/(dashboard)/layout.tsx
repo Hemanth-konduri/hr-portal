@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import AppSidebar from '@/components/layout/AppSidebar'
@@ -14,6 +14,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login')
   }, [user, isLoading, router])
+
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -30,9 +32,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <AppSidebar />
+      <AppSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <AppHeader />
+        <AppHeader onOpenSidebar={() => setSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           {children}
         </main>

@@ -17,11 +17,13 @@ import { QuickActions } from '@/components/dashboard/QuickActions'
 import { CheckInCard } from '@/components/dashboard/CheckInCard'
 import { AttendanceCalendar } from '@/components/dashboard/AttendanceCalendar'
 import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import Link from 'next/link'
 import {
   LogIn, LogOut, UserCheck, UserX, Clock,
   AlertTriangle, TrendingUp, CalendarDays,
   DollarSign, Award, FileText, Megaphone,
-  CheckCircle2, XCircle, Pin,
+  CheckCircle2, XCircle, Pin, Eye,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -162,7 +164,11 @@ export default function EmployeeDashboard() {
     setActionLoading(true)
     const call = async (lat?: number, lng?: number) => {
       try {
-        const res = await api.post('/attendance/checkin', lat ? { latitude: lat, longitude: lng } : {})
+        const res = await api.post('/attendance/checkin', {
+          latitude: lat,
+          longitude: lng,
+          client_time: new Date().toISOString(),
+        })
         toast.success(res.data.isLate ? 'Checked in — marked as late' : 'Checked in successfully!')
         fetchAll()
       } catch (err: any) {
@@ -202,7 +208,17 @@ export default function EmployeeDashboard() {
 
   // ── Derived ───────────────────────────────────────────────
   const latestPayslip  = payslips[0] ?? null
+  const [payslipDialogOpen, setPayslipDialogOpen] = useState(false)
+  const [selectedPayslip, setSelectedPayslip] = useState<MyPayslip | null>(null)
+  const [showAllMonths, setShowAllMonths] = useState(false)
   const pendingLeaves  = leaves.filter(l => l.status === 'pending').length
+
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  // Build months list from Jan up to current month
+  const monthsToShow = Array.from({ length: currentMonth }, (_, i) => i + 1).reverse()
+  const payslipMap = new Map(payslips.filter(p => p.year === currentYear).map(p => [p.month, p]))
+  const visibleMonths = showAllMonths ? monthsToShow : monthsToShow.slice(0, 3)
   const approvedLeaves = leaves.filter(l => l.status === 'approved').length
   const attendedDays   = (summary?.present ?? 0) + (summary?.half_day ?? 0)
 
@@ -360,59 +376,127 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
 
-        {/* Latest Payslip */}
+        {/* Monthly Payslips */}
         <Card className="border-2 border-emerald-100">
           <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                <DollarSign size={15} />
-              </div>
-              <div>
-                <CardTitle className="text-sm font-semibold">Latest Payslip</CardTitle>
-                <CardDescription className="text-xs">
-                  {latestPayslip ? `${MONTHS[latestPayslip.month - 1]} ${latestPayslip.year}` : 'No payslips yet'}
-                </CardDescription>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                  <DollarSign size={15} />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-semibold">Payslips</CardTitle>
+                  <CardDescription className="text-xs">{currentYear} — monthly overview</CardDescription>
+                </div>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            {!latestPayslip ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-2">
-                <DollarSign size={28} className="opacity-20" />
-                <p className="text-xs">No payslip generated yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {[
-                  { label: 'Basic',      value: latestPayslip.basic,      color: 'text-foreground'  },
-                  { label: 'HRA',        value: latestPayslip.hra,        color: 'text-foreground'  },
-                  { label: 'Allowances', value: latestPayslip.allowances, color: 'text-foreground'  },
-                  { label: 'Gross',      value: latestPayslip.gross_salary, color: 'text-foreground', bold: true },
-                ].map(row => (
-                  <div key={row.label} className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">{row.label}</span>
-                    <span className={cn('font-mono', row.bold ? 'font-semibold' : '', row.color)}>
-                      {row.value != null ? `₹${Number(row.value).toLocaleString()}` : '—'}
-                    </span>
+          <CardContent className="space-y-2 pt-0">
+            {visibleMonths.map(m => {
+              const slip = payslipMap.get(m)
+              return (
+                <div key={m} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-semibold text-foreground w-8 shrink-0">{MONTHS[m - 1]}</span>
+                    {slip ? (
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-xs font-bold text-emerald-600 font-mono">₹{Number(slip.net_salary).toLocaleString()}</span>
+                        <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">Gross ₹{Number(slip.gross_salary).toLocaleString()}</span>
+                        {slip.lop_days > 0 && (
+                          <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 px-1.5 py-0">
+                            LOP {slip.lop_days}d
+                          </Badge>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground italic">
+                        {m === currentMonth ? 'Not generated yet' : 'Not generated'}
+                      </span>
+                    )}
                   </div>
-                ))}
-                {latestPayslip.lop_deduction > 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">LOP ({latestPayslip.lop_days}d)</span>
-                    <span className="font-mono text-red-500">-₹{Number(latestPayslip.lop_deduction).toLocaleString()}</span>
-                  </div>
-                )}
-                <Separator />
-                <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2.5">
-                  <span className="text-xs font-semibold text-emerald-800">Net Salary</span>
-                  <span className="text-lg font-bold text-emerald-700">
-                    ₹{Number(latestPayslip.net_salary).toLocaleString()}
-                  </span>
+                  {slip ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => setSelectedPayslip(slip)}
+                    >
+                      <Eye size={13} />
+                    </Button>
+                  ) : (
+                    <span className="h-7 w-7" />
+                  )}
                 </div>
+              )
+            })}
+            {monthsToShow.length > 3 && (
+              <button
+                className="w-full text-xs text-emerald-600 hover:text-emerald-700 font-medium pt-1 text-center"
+                onClick={() => setShowAllMonths(v => !v)}
+              >
+                {showAllMonths ? 'Show less ↑' : `View more (${monthsToShow.length - 3} more) ↓`}
+              </button>
+            )}
+            {monthsToShow.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground gap-1">
+                <DollarSign size={24} className="opacity-20" />
+                <p className="text-xs">No payslip data available</p>
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Payslip Detail Dialog */}
+        <Dialog open={!!selectedPayslip} onOpenChange={v => !v && setSelectedPayslip(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-base">
+                Payslip — {selectedPayslip ? `${MONTHS[selectedPayslip.month - 1]} ${selectedPayslip.year}` : ''}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedPayslip && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Earnings</p>
+                  {[
+                    { label: 'Basic Salary', value: selectedPayslip.basic },
+                    { label: 'HRA',          value: selectedPayslip.hra },
+                    { label: 'Allowances',   value: selectedPayslip.allowances },
+                  ].map(row => (
+                    <div key={row.label} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{row.label}</span>
+                      <span className="font-mono font-medium">
+                        {row.value != null ? `₹${Number(row.value).toLocaleString()}` : '—'}
+                      </span>
+                    </div>
+                  ))}
+                  <Separator />
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span>Gross Salary</span>
+                    <span className="font-mono">₹{Number(selectedPayslip.gross_salary).toLocaleString()}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Deductions</p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">LOP ({selectedPayslip.lop_days} days)</span>
+                    <span className="font-mono text-red-500">
+                      {selectedPayslip.lop_deduction > 0 ? `-₹${Number(selectedPayslip.lop_deduction).toLocaleString()}` : '—'}
+                    </span>
+                  </div>
+                </div>
+                <Separator />
+                <div className="flex justify-between items-center rounded-lg bg-emerald-50 px-4 py-3">
+                  <span className="text-sm font-semibold text-emerald-800">Net Salary</span>
+                  <span className="text-xl font-bold text-emerald-700">₹{Number(selectedPayslip.net_salary).toLocaleString()}</span>
+                </div>
+                <Link href="/employee/payslips" className="block">
+                  <Button variant="outline" size="sm" className="w-full text-xs">View All Payslips</Button>
+                </Link>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Recent Leave Requests */}
         <Card>

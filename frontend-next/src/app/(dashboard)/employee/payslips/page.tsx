@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { StatCard } from '@/components/dashboard/StatCard'
@@ -54,6 +53,12 @@ export default function EmployeePayslipsPage() {
   const totalNet   = filtered.reduce((s, p) => s + Number(p.net_salary), 0)
   const totalLop   = filtered.reduce((s, p) => s + Number(p.lop_days), 0)
   const latestSlip = payslips[0]
+
+  // Build year → month map for the month-grid view
+  const displayYear = yearFilter === 'all' ? now.getFullYear() : Number(yearFilter)
+  const maxMonth = displayYear === now.getFullYear() ? now.getMonth() + 1 : 12
+  const monthsGrid = Array.from({ length: maxMonth }, (_, i) => i + 1).reverse()
+  const slipByMonth = new Map(filtered.filter(p => p.year === displayYear).map(p => [p.month, p]))
 
   return (
     <div className="space-y-6">
@@ -108,60 +113,63 @@ export default function EmployeePayslipsPage() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">Payslip History</CardTitle>
-          <CardDescription className="text-xs">Click a row to view full breakdown</CardDescription>
+          <CardDescription className="text-xs">
+            {displayYear} — click the eye icon to view full breakdown
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="space-y-2 p-4">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-              <DollarSign size={32} className="text-muted-foreground/30" />
-              <p className="text-sm">No payslips found</p>
-              <p className="text-xs">Your payslips will appear here once generated</p>
-            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableHead className="text-xs">Period</TableHead>
-                    <TableHead className="text-xs text-right">Gross Salary</TableHead>
-                    <TableHead className="text-xs text-center">LOP Days</TableHead>
-                    <TableHead className="text-xs text-right">Deduction</TableHead>
-                    <TableHead className="text-xs text-right">Net Salary</TableHead>
-                    <TableHead className="text-xs w-16" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map(p => (
-                    <TableRow key={p.id} className="text-sm cursor-pointer hover:bg-muted/30"
-                      onClick={() => setSelected(p)}>
-                      <TableCell>
-                        <p className="text-xs font-semibold text-foreground">{MONTHS[p.month - 1]} {p.year}</p>
-                      </TableCell>
-                      <TableCell className="text-xs text-right font-mono">₹{Number(p.gross_salary).toLocaleString()}</TableCell>
-                      <TableCell className="text-center">
-                        {p.lop_days > 0 ? (
-                          <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200">
-                            {p.lop_days}d
-                          </Badge>
-                        ) : <span className="text-xs text-muted-foreground">—</span>}
-                      </TableCell>
-                      <TableCell className="text-xs text-right font-mono text-red-500">
-                        {p.lop_deduction > 0 ? `-₹${Number(p.lop_deduction).toLocaleString()}` : '—'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className="text-sm font-bold text-emerald-600">₹{Number(p.net_salary).toLocaleString()}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                          <Eye size={13} />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="divide-y">
+              {monthsGrid.map(m => {
+                const slip = slipByMonth.get(m)
+                return (
+                  <div key={m} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs font-semibold text-foreground w-20 shrink-0">
+                        {MONTHS[m - 1]} {displayYear}
+                      </span>
+                      {slip ? (
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-xs font-bold text-emerald-600 font-mono">₹{Number(slip.net_salary).toLocaleString()}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">Gross ₹{Number(slip.gross_salary).toLocaleString()}</span>
+                          {slip.lop_days > 0 && (
+                            <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 px-1.5 py-0">
+                              LOP {slip.lop_days}d
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">
+                          {m === now.getMonth() + 1 && displayYear === now.getFullYear()
+                            ? 'Payslip not generated yet for this month'
+                            : 'Not generated'}
+                        </span>
+                      )}
+                    </div>
+                    {slip ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => setSelected(slip)}
+                      >
+                        <Eye size={13} />
+                      </Button>
+                    ) : (
+                      <span className="h-7 w-7" />
+                    )}
+                  </div>
+                )
+              })}
+              {monthsGrid.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+                  <DollarSign size={32} className="text-muted-foreground/30" />
+                  <p className="text-sm">No payslips found</p>
+                  <p className="text-xs">Your payslips will appear here once generated</p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
